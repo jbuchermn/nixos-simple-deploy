@@ -23,8 +23,7 @@
           src = ./.;
 
           propagatedBuildInputs = with pkgs.python3Packages; [
-            spur
-
+            paramiko
             setuptools
           ];
 

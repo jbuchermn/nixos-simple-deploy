@@ -290,9 +290,10 @@ class Deployed:
     def run_ssh(self) -> None:
         os.system("ssh %s@%s" % (self.user, self.host))
 
-if __name__ == '__main__':
-    Deployed("192.168.64.2", "test")\
-            .run_ssh_copyid()
+def main() -> None:
+    print("argparse to be implemented")
+    # Deployed("192.168.64.2", "test")\
+            # .run_ssh_copyid()
             # .run_pull()
             # .run_deploy()
             # .run_create_deployment()
@@ -300,4 +301,7 @@ if __name__ == '__main__':
 
     # TODO
     # proper formatting
-    # package setup.py / argparse
+    # argparse
+
+if __name__ == '__main__':
+    main()
