@@ -6,7 +6,7 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, pywmpkg, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils }:
   flake-utils.lib.eachDefaultSystem (
     system:
     let
@@ -35,6 +35,10 @@
         my-python = pkgs.python3;
         python-with-my-packages = my-python.withPackages (ps: with ps; [
           spur
+
+          python-lsp-server
+          (pylsp-mypy.overrideAttrs (old: { pytestCheckPhase = "true"; }))
+          mypy
         ]);
       in
         pkgs.mkShell {
