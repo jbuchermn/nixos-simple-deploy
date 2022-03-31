@@ -15,45 +15,63 @@ basic_flake_nix = """
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    pkg-nixos-simple-deploy.url = "github:jbuchermn/nixos-simple-deploy";
   };
 
-  outputs = { nixpkgs, ... }:
-  {
-    packages = flake-utils.lib.eachDefaultSystem (system:
-      let
-        stateVersion = "22.05";
+  outputs = { nixpkgs, flake-utils, pkg-nixos-simple-deploy, ... }:
+  let
+    system = "x86_64-linux";
+    stateVersion = "22.05";
 
-        pkgs = import nixpkgs {
-          inherit system;
-          config = {
-            allowUnfree = true;
-          };
-          overlays = [
-          ];
+    pkgs = import nixpkgs {
+      inherit system;
+      config = {
+        allowUnfree = true;
+      };
+      overlays = [
+      ];
+    };
+
+    lib = nixpkgs.lib;
+
+    nixosSystem = _modules: lib.nixosSystem {
+        inherit system pkgs;
+        modules = [ 
+          ({ config, pkgs, ... }: {
+            nix.registry.nixpkgs.flake = nixpkgs;
+          })
+        ] ++ _modules;
+    };
+  in {
+    nixosConfigurations = {
+      HOSTNAME = nixosSystem [
+        ./HOSTNAME/configuration.nix
+        ({ config, pkgs, ... }: {
+            # Place configuration here, or create new modules in ./HOSTNAME
+        })
+      ];
+    }; 
+  } // flake-utils.lib.eachDefaultSystem (system:
+    let
+      pkgs = import nixpkgs {
+        inherit system;
+        config = {
+          allowUnfree = true;
         };
-
-        lib = nixpkgs.lib;
-
-        nixosSystem = _modules: lib.nixosSystem {
-            inherit system pkgs;
-            modules = [ 
-              ({ config, pkgs, ... }: {
-                nix.registry.nixpkgs.flake = nixpkgs;
-              })
-            ] ++ _modules;
-        };
-      in
-      {
-        nixosConfigurations = {
-          HOSTNAME = nixosSystem [
-            ./HOSTNAME/configuration.nix
-            ({ config, pkgs, ... }: {
-                # Place configuration here, or create new modules in ./HOSTNAME
-            })
-          ];
-        }; 
-    );
-  };
+        overlays = [
+          (self: super: rec {
+            nixos-simple-deploy = pkg-nixos-simple-deploy.packages.${system}.nixos-simple-deploy;
+          })
+        ];
+      };
+    in {
+      devShell = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          nixos-simple-deploy
+        ];
+      };
+    }
+  );
 }
 
 """
@@ -119,23 +137,15 @@ class Deployed:
 
     def _push_remote_git(self, force: bool=False) -> bool:
         if force:
-            git_root = self._check_local_git()
-            tmp_dir = self._run_local_cmd(["mktemp", "-d"])
-
-            print("Compressing git repo to tar...")
-            self._run_local_cmd(["tar", "cfz", os.path.join(tmp_dir, "git.tar.gz"), "."], cwd=os.path.join(git_root, ".git")) 
-
-            print("Copying to deployment...")
+            print("Cleaning bare repo...")
             self._run_remote_cmd(["mkdir", "-p", "/etc/nixos-simple-deploy"])
-            self._copy_file_to_remote(os.path.join(tmp_dir, "git.tar.gz"), "/etc/nixos-simple-deploy/git.tar.gz")
-
-            print("Setting up bare git repo...")
             self._run_remote_cmd(["rm", "-rf", "bare"], cwd="/etc/nixos-simple-deploy")
             self._run_remote_cmd(["mkdir", "bare"], cwd="/etc/nixos-simple-deploy")
-            self._run_remote_cmd(["tar", "xfz", "../git.tar.gz"], cwd="/etc/nixos-simple-deploy/bare")
-            self._run_remote_cmd(["rm", "./git.tar.gz"], cwd="/etc/nixos-simple-deploy")
-        else:
-            self._run_local_cmd(["git", "push", "ssh://%s@%s/etc/nixos-simple-deploy/bare" % (self.user, self.host)])
+
+            print("Creating bare repo...")
+            self._run_remote_cmd(["git", "init", "--bare"], cwd="/etc/nixos-simple-deploy/bare")
+
+        self._run_local_cmd(["git", "push", "ssh://%s@%s/etc/nixos-simple-deploy/bare" % (self.user, self.host)])
         return True
 
     def _update_remote_git(self, force: bool=False) -> bool:
@@ -155,7 +165,13 @@ class Deployed:
 
         print("Pulling...")
         try:
-            self._run_remote_cmd(["git", "pull"], cwd="/etc/nixos-simple-deploy/working-dir")
+            gst = self._run_remote_cmd(["git", "status", "--porcelain"], cwd="/etc/nixos-simple-deploy/working-dir")
+            if gst.strip() != "" and not force:
+                print("Working directory on deployment is dirty - aborting")
+                return False
+
+            self._run_remote_cmd(["git", "fetch"], cwd="/etc/nixos-simple-deploy/working-dir")
+            self._run_remote_cmd(["git", "reset", "--hard", "origin/master"], cwd="/etc/nixos-simple-deploy/working-dir")
         except Exception as e:
             print(e)
             return False
@@ -206,7 +222,13 @@ class Deployed:
                             "  services.openssh = {\n",
                             "      enable = true;\n",
                             "      permitRootLogin = \"yes\";\n",
-                            "  };\n"
+                            "  };\n",
+                            "  nix = {\n",
+                            "    package = pkgs.nixFlakes;\n",
+                            "    extraOptions = ''\n",
+                            "       experimental-features = nix-command flakes\n",
+                            "   '';\n",
+                            "  };\n",
                         ]
                 conf_nix += [l]
 
@@ -315,6 +337,8 @@ def main() -> None:
 
     # TODO
     # proper formatting
+    # Properly handle branches
+    # Clean up flake.nix creation?
 
 if __name__ == '__main__':
     main()
