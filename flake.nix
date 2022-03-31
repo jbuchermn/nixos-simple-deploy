@@ -34,7 +34,7 @@
       devShell = let
         my-python = pkgs.python3;
         python-with-my-packages = my-python.withPackages (ps: with ps; [
-          spur
+          paramiko
 
           python-lsp-server
           (pylsp-mypy.overrideAttrs (old: { pytestCheckPhase = "true"; }))
