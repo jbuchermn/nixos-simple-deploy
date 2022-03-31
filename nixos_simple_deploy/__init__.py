@@ -5,6 +5,7 @@ import subprocess
 import os
 import getpass
 import time
+import argparse
 import paramiko  # type: ignore
 
 basic_flake_nix = """
@@ -161,7 +162,7 @@ class Deployed:
 
         return True
 
-    def run_ssh_copyid(self) -> None:
+    def run_ssh_store_key(self) -> None:
         self._run_local_cmd(["ssh-copy-id", "%s@%s" % (self.user, self.host)])
 
     def run_bootstrap(self, hostname: str) -> None:
@@ -291,17 +292,29 @@ class Deployed:
         os.system("ssh %s@%s" % (self.user, self.host))
 
 def main() -> None:
-    print("argparse to be implemented")
-    # Deployed("192.168.64.2", "test")\
-            # .run_ssh_copyid()
-            # .run_pull()
-            # .run_deploy()
-            # .run_create_deployment()
-            # .run_bootstrap("nixos-simple-deploy-test")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("host", help="Hostname / IP address of deployment", type=str)
+    parser.add_argument("command", help="Command", type=str, choices=["store-key", "ssh", "bootstrap", "create", "deploy", "pull"])
+    parser.add_argument("hostname", help="Hostname for command bootstrap", type=str, nargs='?')
+    parser.add_argument("-p", "--password", help="Password to connect to deployment via SSH", type=str)
+    parser.add_argument("-f", "--force", help="Force, possibly overwriting data", action="store_true")
+    args = parser.parse_args()
+    deployed = Deployed(args.host, args.password)
+    if args.command == "store-key":
+        deployed.run_ssh_store_key()
+    elif args.command == "ssh":
+        deployed.run_ssh()
+    elif args.command == "bootstrap":
+        deployed.run_bootstrap(args.hostname)
+    elif args.command == "create":
+        deployed.run_create_deployment()
+    elif args.command == "deploy":
+        deployed.run_deploy(args.force)
+    elif args.command == "pull":
+        deployed.run_pull()
 
     # TODO
     # proper formatting
-    # argparse
 
 if __name__ == '__main__':
     main()

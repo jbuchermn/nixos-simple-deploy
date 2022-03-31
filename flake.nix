@@ -26,8 +26,6 @@
             paramiko
             setuptools
           ];
-
-          setuptoolsCheckPhase = "true";
         };
 
       devShell = let
