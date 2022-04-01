@@ -106,7 +106,7 @@ class Deployed:
         def line_buffered(f):
             line_buf = ""
             while not f.channel.exit_status_ready():
-                line_buf += f.read(1).decode("utf-8")
+                line_buf += f.read(1).decode("utf-8", "ignore")
                 if line_buf.endswith('\n') or line_buf.endswith('\r'):
                     yield line_buf
                     line_buf = ''
