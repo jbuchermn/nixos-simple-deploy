@@ -50,7 +50,7 @@ basic_flake_nix = """
       HOSTNAME = nixosSystem [
         ./HOSTNAME/configuration.nix
         ({ config, pkgs, ... }: {
-            # Place configuration here, or create new modules in ./HOSTNAME
+            # Place configuration here, or create new modules
         })
       ];
     }; 
@@ -187,7 +187,7 @@ class Deployed:
     def run_ssh_store_key(self) -> None:
         self._run_local_cmd(["ssh-copy-id", "%s@%s" % (self.user, self.host)])
 
-    def run_bootstrap(self, hostname: str) -> None:
+    def run_bootstrap(self, hostname: str, root_password: Optional[str]=None, dont_prompt: bool=False) -> None:
         vol = "/dev/sda"
         swap = 8
 
@@ -242,18 +242,19 @@ class Deployed:
         with open(os.path.join(self.dir, hostname, "configuration.nix"), 'w') as f:
             f.writelines(conf_nix)
 
-        console.print("[bold]Prepared configuration.nix with hostname and SSH[/bold]")
-        console.print("  - Feel free to adjust other configuration options")
-        console.print("  - Possibly you need to [i]adjust some boot settings[/i] for MBR")
-        input("Hit enter to continue...")
+        if not dont_prompt:
+            console.print("[bold]Prepared configuration.nix with hostname and SSH[/bold]")
+            console.print("  - Feel free to adjust other configuration options")
+            console.print("  - Possibly you need to [i]adjust some boot settings[/i] for MBR")
+            input("Hit enter to continue...")
         self._copy_file_to_remote(os.path.join(self.dir, hostname, "configuration.nix"), "/mnt/etc/nixos/configuration.nix")
         self._copy_file_to_remote(os.path.join(self.dir, hostname, "hardware-configuration.nix"), "/mnt/etc/nixos/hardware-configuration.nix")
 
         console.print("[bold cyan]Installing...[/bold cyan]")
         self._run_remote_cmd(["nixos-install", "--no-root-passwd", "2>&1"])
 
-        password = ""
-        password_check = "dummy"
+        password = "" if root_password is None else root_password
+        password_check = "dummy" if root_password is None else root_password
         while password != password_check:
             password = getpass.getpass("Enter root password: ")
             password_check = getpass.getpass("Repeat root password: ")
@@ -325,6 +326,7 @@ def main() -> None:
     parser.add_argument("command", help="Command", type=str, choices=["store-key", "ssh", "bootstrap", "create", "deploy", "pull"])
     parser.add_argument("hostname", help="Hostname for command bootstrap", type=str, nargs='?')
     parser.add_argument("-p", "--password", help="Password to connect to deployment via SSH", type=str)
+    parser.add_argument("-P", "--root-password", help="Root password for bootstrapping", type=str)
     parser.add_argument("-f", "--force", help="Force, possibly overwriting data", action="store_true")
     args = parser.parse_args()
     deployed = Deployed(args.host, args.password)
@@ -333,20 +335,13 @@ def main() -> None:
     elif args.command == "ssh":
         deployed.run_ssh()
     elif args.command == "bootstrap":
-        deployed.run_bootstrap(args.hostname)
+        deployed.run_bootstrap(args.hostname, root_password=args.root_password, dont_prompt=args.force)
     elif args.command == "create":
         deployed.run_create_deployment()
     elif args.command == "deploy":
         deployed.run_deploy(args.force)
     elif args.command == "pull":
         deployed.run_pull()
-
-    # TODO
-    # - Proper formatting
-    # - Properly handle branches
-    # - Clean up flake.nix creation?
-    # - README
-    # - Nix commands output over SSH
 
 if __name__ == '__main__':
     main()
