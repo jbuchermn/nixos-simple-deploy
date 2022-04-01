@@ -24,6 +24,7 @@
 
           propagatedBuildInputs = with pkgs.python3Packages; [
             paramiko
+            rich
             setuptools
           ];
         };
@@ -32,6 +33,7 @@
         my-python = pkgs.python3;
         python-with-my-packages = my-python.withPackages (ps: with ps; [
           paramiko
+          rich
 
           python-lsp-server
           (pylsp-mypy.overrideAttrs (old: { pytestCheckPhase = "true"; }))
