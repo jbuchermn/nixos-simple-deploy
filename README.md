@@ -2,14 +2,14 @@
 
 A small helper script to manage nixOS deployments via SSH and git. This doesn't rely on `nix-instantiate` or `nix-copy-closure`, instead building the config is done completely on the deployment target.
 
-## Simnple setup
+## Simple setup
 
-Start a VM running NixOS live iso, set a root password, note the IP.
+Start a VM running the NixOS live iso, set a root password, note the IP.
 
 ```sh
 cd my-deployment
 git init
-nixos-simple-deploy 192.168.x.y bootstrap deployment-hostname -p the-password
+nixos-simple-deploy 192.168.x.y bootstrap deployment-hostname -p the-password -P desired-root-password -f
 nixos-simple-deploy 192.168.x.y store-key
 nixos-simple-deploy 192.168.x.y create
 vim flake.nix  # place your desired server config
