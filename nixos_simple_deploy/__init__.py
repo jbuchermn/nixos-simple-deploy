@@ -112,7 +112,7 @@ class Deployed:
             result += l
 
         if stdout.channel.recv_exit_status() != 0:
-            raise Exception("Error executing remote '%s': '%s' '%s'" % (" ".join(args), result.strip(), stderr.readlines()))
+            raise Exception("Error executing remote '%s': '%s' '%s'" % (" ".join(args), result.strip(), "".join(stderr.readlines())))
         return result.strip()
 
     def _copy_file_to_remote(self, local: str, remote: str) -> None:
@@ -170,8 +170,9 @@ class Deployed:
                 print("Working directory on deployment is dirty - aborting")
                 return False
 
+            branch = self._run_local_cmd(["git", "branch", "--show-current"], cwd=self.dir)
             self._run_remote_cmd(["git", "fetch"], cwd="/etc/nixos-simple-deploy/working-dir")
-            self._run_remote_cmd(["git", "reset", "--hard", "origin/master"], cwd="/etc/nixos-simple-deploy/working-dir")
+            self._run_remote_cmd(["git", "reset", "--hard", "origin/%s" % branch], cwd="/etc/nixos-simple-deploy/working-dir")
         except Exception as e:
             print(e)
             return False
@@ -336,9 +337,11 @@ def main() -> None:
         deployed.run_pull()
 
     # TODO
-    # proper formatting
-    # Properly handle branches
-    # Clean up flake.nix creation?
+    # - Proper formatting
+    # - Properly handle branches
+    # - Clean up flake.nix creation?
+    # - README
+    # - Nix commands output over SSH
 
 if __name__ == '__main__':
     main()
