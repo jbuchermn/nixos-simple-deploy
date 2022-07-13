@@ -182,6 +182,13 @@ class Deployed:
         except Exception:
             return False
 
+        try:
+            console.print("[bold cyan]Updating submodules...[/bold cyan]")
+            self._run_remote_cmd(["git", "submodule", "update", "--init", "--recursive" ], cwd="/etc/nixos-simple-deploy/working-dir")
+        except:
+            console.print("[bold cyan]...not necessary[/bold cyan]")
+            pass
+
         return True
 
     def run_ssh_store_key(self) -> None:
